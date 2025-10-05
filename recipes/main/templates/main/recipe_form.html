@@ -1,0 +1,30 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Новый рецепт{% endblock %}
+
+{% block content %}
+<h1>Добавить рецепт и сохранить в XML</h1>
+<form method="post" action="">
+  {% csrf_token %}
+  <div class="row">{{ form.title.label_tag }} {{ form.title }}</div>
+  <div class="row">{{ form.ingredients.label_tag }} {{ form.ingredients }}</div>
+  <div class="row">{{ form.instructions.label_tag }} {{ form.instructions }}</div>
+  <div class="row">{{ form.servings.label_tag }} {{ form.servings }}</div>
+  <div class="row">{{ form.cook_minutes.label_tag }} {{ form.cook_minutes }}</div>
+  <button type="submit">Сохранить</button>
+</form>
+
+<hr />
+
+<h2>Загрузка XML файла</h2>
+<form method="post" action="{% url 'main:upload' %}" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="row">{{ upload_form.file.label_tag }} {{ upload_form.file }}</div>
+  <button type="submit">Загрузить</button>
+  <p>Поддерживаются корректные файлы с рецептами в формате XML.</p>
+  <p><a href="{% url 'main:files_list' %}">Посмотреть файлы</a></p>
+  
+</form>
+{% endblock %}
+
+

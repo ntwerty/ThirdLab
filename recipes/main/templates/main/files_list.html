@@ -1,0 +1,60 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Файлы{% endblock %}
+
+{% block content %}
+<div class="toolbar card">
+  <div>
+    <strong>Файлы XML</strong>
+    <div class="muted">Загрузки и экспортированные файлы</div>
+  </div>
+</div>
+
+{% if empty %}
+  <div class="card"><p>На сервере нет файлов XML.</p></div>
+{% else %}
+  <h2>Загрузки</h2>
+  {% if uploads %}
+    <div class="grid">
+      {% for f in uploads %}
+        <div class="card file-card" data-file-card data-name="{{ f.name }}">
+          <div class="file-title">
+            <a href="{% url 'main:file_detail' 'uploads' f.name %}">{{ f.name }}</a>
+            <span class="badge">XML</span>
+          </div>
+          <div class="kpis">
+            <span title="Размер">📦 {{ f.size }} B</span>
+            <span title="Изменён">🕒 {{ f.mtime|date:'Y-m-d H:i' }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card"><p>Нет загруженных файлов.</p></div>
+  {% endif %}
+
+  <h2>Экспортированные</h2>
+  {% if exports %}
+    <div class="grid">
+      {% for f in exports %}
+        <div class="card file-card" data-file-card data-name="{{ f.name }}">
+          <div class="file-title">
+            <a href="{% url 'main:file_detail' 'exports' f.name %}">{{ f.name }}</a>
+            <span class="badge">XML</span>
+          </div>
+          <div class="kpis">
+            <span title="Размер">📦 {{ f.size }} B</span>
+            <span title="Изменён">🕒 {{ f.mtime|date:'Y-m-d H:i' }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card"><p>Нет экспортированных файлов.</p></div>
+  {% endif %}
+{% endif %}
+
+<p class="muted"><a href="{% url 'main:recipe_form' %}">Вернуться к форме</a></p>
+{% endblock %}
+
+

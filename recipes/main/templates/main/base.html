@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Рецепты{% endblock %}</title>
+    <style>
+      :root { --bg:#0b1020; --card:#131a2b; --muted:#9aa4b2; --text:#f5f7fb; --accent:#5b8cff; --ok:#19c37d; --err:#ff5c5c; --border:#22304d; }
+      * { box-sizing: border-box; }
+      body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+      .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+      .brand { font-weight: 700; letter-spacing:.3px; }
+      .nav { display:flex; gap:12px; }
+      .nav a { padding:8px 12px; border-radius:8px; background: transparent; border:1px solid transparent; }
+      .nav a:hover { background: rgba(255,255,255,0.04); border-color: var(--border); text-decoration:none; }
+      .card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding: 16px; box-shadow: 0 1px 0 rgba(0,0,0,.2); }
+      .messages { margin: 12px 0; }
+      .messages .success { color: var(--ok); }
+      .messages .error { color: var(--err); }
+      textarea { width: 100%; min-height: 140px; background:#0f1526; color: var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; }
+      input[type="text"], input[type="number"], select, input[type="search"], input[type="file"] { width: 100%; background:#0f1526; color: var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; }
+      button { background: var(--accent); color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
+      button:hover { filter: brightness(1.05); }
+      form .row { margin-bottom: .85rem; }
+      .muted { color: var(--muted); }
+      .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+      .file-card { display:flex; flex-direction:column; gap:8px; }
+      .file-title { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+      .badge { font-size:12px; color:#cbd5e1; background:#1d273f; border:1px solid var(--border); padding:2px 8px; border-radius:999px; }
+      .kpis { display:flex; gap:10px; color:#cbd5e1; font-size: 12px; }
+      .toolbar { display:flex; align-items:center; justify-content:space-between; margin: 8px 0 16px; gap: 12px; }
+      .toolbar .right { display:flex; gap:8px; align-items:center; }
+      pre { background: #0f1526; padding: 12px; overflow: auto; border-radius:8px; border:1px solid var(--border); }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="brand">Рецепты XML</div>
+        <div class="nav">
+          <a href="{% url 'main:recipe_form' %}">Форма</a>
+          <a href="{% url 'main:files_list' %}">Файлы</a>
+        </div>
+      </div>
+      <div class="messages">
+        {% for message in messages %}
+          <div class="{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+  </html>
+
+

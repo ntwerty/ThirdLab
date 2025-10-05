@@ -1,0 +1,21 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Файл {{ filename }}{% endblock %}
+
+{% block content %}
+<h1>{{ kind|title }}: {{ filename }}</h1>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% else %}
+  <h2>Структура данных</h2>
+  <pre><code>{{ data|safe|default:'(нет данных)' }}</code></pre>
+{% endif %}
+
+<h2>Исходное содержимое</h2>
+<pre><code>{{ raw_text|escape }}</code></pre>
+
+<p><a href="{% url 'main:files_list' %}">Назад к списку</a></p>
+{% endblock %}
+
+

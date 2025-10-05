@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'main',
 ]
 
 MIDDLEWARE = [
@@ -115,6 +116,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Media (for uploaded files if needed in the future)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Application storage directories for JSON/XML data
+# We keep separate folders for uploaded files and exported files.
+DATA_ROOT = BASE_DIR / 'data'
+UPLOADS_DIR = DATA_ROOT / 'uploads'
+EXPORTS_DIR = DATA_ROOT / 'exports'
+
+# Ensure directories exist during startup (development-safe)
+for required_dir in (MEDIA_ROOT, DATA_ROOT, UPLOADS_DIR, EXPORTS_DIR):
+    required_dir.mkdir(parents=True, exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
