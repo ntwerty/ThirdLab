@@ -102,6 +102,26 @@ def _to_xml(obj) -> str:
     return ET.tostring(root, encoding='utf-8', xml_declaration=True).decode('utf-8')
 
 
+def _read_all_recipes_from_single_file():
+    path = Path(settings.SINGLE_DATA_FILE)
+    if not path.exists():
+        return []
+    try:
+        content = path.read_text(encoding='utf-8')
+        parsed = _parse_xml(content.encode('utf-8'))
+        if parsed is None:
+            return []
+        return parsed if isinstance(parsed, list) else [parsed]
+    except Exception:
+        return []
+
+
+def _write_all_recipes_to_single_file(recipes_list):
+    # recipes_list is a list of recipe dicts
+    xml_text = _to_xml(recipes_list)
+    Path(settings.SINGLE_DATA_FILE).write_text(xml_text, encoding='utf-8')
+
+
 def recipe_form_view(request):
     if request.method == 'POST':
         form = RecipeForm(request.POST)
@@ -113,10 +133,11 @@ def recipe_form_view(request):
                 'servings': form.cleaned_data['servings'],
                 'cook_minutes': form.cleaned_data['cook_minutes'],
             }
-            filename = _generate_safe_filename('recipe')
-            target_path = Path(settings.EXPORTS_DIR) / filename
-            target_path.write_text(_to_xml(recipe), encoding='utf-8')
-            messages.success(request, f'Рецепт сохранён в файл {filename}')
+            # Append to single consolidated XML file
+            all_recipes = _read_all_recipes_from_single_file()
+            all_recipes.append(recipe)
+            _write_all_recipes_to_single_file(all_recipes)
+            messages.success(request, f'Рецепт сохранён в общий файл {Path(settings.SINGLE_DATA_FILE).name}')
             return redirect('main:recipe_form')
         else:
             messages.error(request, 'Исправьте ошибки формы.')
@@ -141,15 +162,16 @@ def upload_view(request):
         parsed = _parse_xml(content)
         if parsed is None or not _validate_recipe_payload(parsed):
             raise ValueError('XML схема невалидна')
-        saved_filename = _generate_safe_filename('upload')
-        (Path(settings.UPLOADS_DIR) / saved_filename).write_text(
-            _to_xml(parsed), encoding='utf-8'
-        )
+        # Merge parsed data into single consolidated file
+        incoming = parsed if isinstance(parsed, list) else [parsed]
+        all_recipes = _read_all_recipes_from_single_file()
+        all_recipes.extend(incoming)
+        _write_all_recipes_to_single_file(all_recipes)
     except Exception as exc:
         messages.error(request, f'Файл отклонён: {exc}')
         return redirect('main:recipe_form')
 
-    messages.success(request, f'Файл загружен и сохранён как {saved_filename}')
+    messages.success(request, f'Файл загружен и добавлен в {Path(settings.SINGLE_DATA_FILE).name}')
     return redirect('main:files_list')
 
 
@@ -169,6 +191,12 @@ def files_list_view(request):
         uploads = [describe(p) for p in sorted(up_dir.glob('*.xml'))]
     if ex_dir.exists():
         exports = [describe(p) for p in sorted(ex_dir.glob('*.xml'))]
+    # Ensure the single consolidated file appears even if other files are absent
+    single_file = Path(settings.SINGLE_DATA_FILE)
+    if single_file.exists():
+        # Avoid duplicates if it is already listed
+        if not any(x['name'] == single_file.name for x in exports):
+            exports.append(describe(single_file))
     empty = not uploads and not exports
     return render(request, 'main/files_list.html', {
         'uploads': uploads,

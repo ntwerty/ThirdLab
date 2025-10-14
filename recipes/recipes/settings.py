@@ -126,10 +126,19 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DATA_ROOT = BASE_DIR / 'data'
 UPLOADS_DIR = DATA_ROOT / 'uploads'
 EXPORTS_DIR = DATA_ROOT / 'exports'
+SINGLE_DATA_FILE = EXPORTS_DIR / 'recipes.xml'
 
 # Ensure directories exist during startup (development-safe)
 for required_dir in (MEDIA_ROOT, DATA_ROOT, UPLOADS_DIR, EXPORTS_DIR):
     required_dir.mkdir(parents=True, exist_ok=True)
+
+# Ensure the single data file exists (empty <recipes/> by default)
+try:
+    if not SINGLE_DATA_FILE.exists():
+        SINGLE_DATA_FILE.write_text('<?xml version="1.0" encoding="utf-8"?>\n<recipes/>', encoding='utf-8')
+except Exception:
+    # In development it's fine to ignore file creation errors here
+    pass
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
