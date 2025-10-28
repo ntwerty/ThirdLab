@@ -1,0 +1,288 @@
+{% extends 'main/base.html' %}
+
+{% block title %}{{ recipe.title }}{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h1>{{ recipe.title }}</h1>
+  <div class="right">
+    <a href="{% url 'main:database_recipes' %}" class="btn-secondary">← К списку</a>
+    <a href="{% url 'main:recipe_edit' recipe.id %}" class="btn-edit">Редактировать</a>
+  </div>
+</div>
+
+<div class="recipe-detail">
+  <div class="recipe-main">
+    <div class="recipe-meta-large">
+      <div class="meta-item">
+        <span class="meta-icon">🍽️</span>
+        <span class="meta-label">Порций</span>
+        <span class="meta-value">{{ recipe.servings }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-icon">⏱️</span>
+        <span class="meta-label">Время готовки</span>
+        <span class="meta-value">{{ recipe.cook_minutes }} мин</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-icon">📅</span>
+        <span class="meta-label">Создан</span>
+        <span class="meta-value">{{ recipe.created_at|date:"d.m.Y" }}</span>
+      </div>
+    </div>
+    
+    <div class="recipe-sections">
+      <div class="ingredients-section">
+        <h2>🥘 Ингредиенты</h2>
+        <div class="ingredients-list">
+          {% for ingredient in recipe.get_ingredients_list %}
+            <div class="ingredient-item">
+              <span class="ingredient-number">{{ forloop.counter }}</span>
+              <span class="ingredient-text">{{ ingredient }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <div class="instructions-section">
+        <h2>📝 Инструкции</h2>
+        <div class="instructions-content">
+          {{ recipe.instructions|linebreaks }}
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="recipe-sidebar">
+    <div class="card">
+      <h3>📊 Информация</h3>
+      <div class="info-list">
+        <div class="info-item">
+          <span class="info-label">Количество ингредиентов:</span>
+          <span class="info-value">{{ recipe.get_ingredients_list|length }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Длина инструкций:</span>
+          <span class="info-value">{{ recipe.instructions|length }} символов</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Последнее обновление:</span>
+          <span class="info-value">{{ recipe.updated_at|date:"d.m.Y H:i" }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>⚙️ Действия</h3>
+      <div class="action-buttons">
+        <a href="{% url 'main:recipe_edit' recipe.id %}" class="btn-edit">✏️ Редактировать</a>
+        <form method="POST" action="{% url 'main:recipe_delete' recipe.id %}" class="delete-form" onsubmit="return confirm('Вы уверены, что хотите удалить этот рецепт?')">
+          {% csrf_token %}
+          <button type="submit" class="btn-delete">🗑️ Удалить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.recipe-detail {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.recipe-meta-large {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.meta-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.meta-label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.meta-value {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.recipe-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ingredients-section, .instructions-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.ingredients-section h2, .instructions-section h2 {
+  color: var(--accent);
+  margin: 0 0 16px 0;
+  font-size: 20px;
+}
+
+.ingredients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ingredient-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(91, 140, 255, 0.1);
+  border: 1px solid rgba(91, 140, 255, 0.2);
+  border-radius: 8px;
+}
+
+.ingredient-number {
+  background: var(--accent);
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ingredient-text {
+  color: var(--text);
+  flex: 1;
+}
+
+.instructions-content {
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+.recipe-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.info-value {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-edit {
+  background: #f59e0b;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  text-align: center;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-edit:hover {
+  background: #d97706;
+  text-decoration: none;
+}
+
+.delete-form {
+  display: block;
+}
+
+.btn-delete {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  width: 100%;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .recipe-detail {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .recipe-meta-large {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .meta-item {
+    flex-direction: row;
+    text-align: left;
+  }
+  
+  .meta-icon {
+    margin-right: 8px;
+    margin-bottom: 0;
+  }
+}
+</style>
+{% endblock %}

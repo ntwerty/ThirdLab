@@ -1,13 +1,21 @@
 from uuid import uuid4
 from pathlib import Path
 import xml.etree.ElementTree as ET
+import json
 
 from django.conf import settings
 from django.contrib import messages
-from django.http import Http404
-from django.shortcuts import redirect, render
+from django.http import Http404, JsonResponse
+from django.shortcuts import redirect, render, get_object_or_404
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
+from django.db.models.functions import Cast
+from django.db.models import TextField
+from django.db import IntegrityError
 
-from .forms import RecipeForm, UploadDataForm
+from .forms import RecipeForm, UploadDataForm, RecipeEditForm
+from .models import Recipe
 
 
 def _generate_safe_filename(prefix: str) -> str:
@@ -126,18 +134,47 @@ def recipe_form_view(request):
     if request.method == 'POST':
         form = RecipeForm(request.POST)
         if form.is_valid():
-            recipe = {
+            recipe_data = {
                 'title': form.cleaned_data['title'],
                 'ingredients': [x.strip() for x in form.cleaned_data['ingredients'].split('\n') if x.strip()],
                 'instructions': form.cleaned_data['instructions'],
                 'servings': form.cleaned_data['servings'],
                 'cook_minutes': form.cleaned_data['cook_minutes'],
             }
-            # Append to single consolidated XML file
-            all_recipes = _read_all_recipes_from_single_file()
-            all_recipes.append(recipe)
-            _write_all_recipes_to_single_file(all_recipes)
-            messages.success(request, f'Рецепт сохранён в общий файл {Path(settings.SINGLE_DATA_FILE).name}')
+            
+            storage_type = form.cleaned_data['storage_type']
+            
+            if storage_type == 'file':
+                # Сохранение в файл (существующая логика)
+                all_recipes = _read_all_recipes_from_single_file()
+                all_recipes.append(recipe_data)
+                _write_all_recipes_to_single_file(all_recipes)
+                messages.success(request, f'Рецепт сохранён в файл {Path(settings.SINGLE_DATA_FILE).name}')
+            else:
+                # Сохранение в базу данных
+                try:
+                    # Проверка на дубликаты
+                    existing_recipe = Recipe.objects.filter(
+                        title=recipe_data['title'],
+                        instructions=recipe_data['instructions'],
+                        servings=recipe_data['servings'],
+                        cook_minutes=recipe_data['cook_minutes']
+                    ).first()
+                    
+                    if existing_recipe:
+                        # Проверяем ингредиенты
+                        existing_ingredients = existing_recipe.get_ingredients_list()
+                        if sorted(existing_ingredients) == sorted(recipe_data['ingredients']):
+                            messages.warning(request, 'Такой рецепт уже существует в базе данных!')
+                            return redirect('main:recipe_form')
+                    
+                    # Создаем новый рецепт
+                    recipe = Recipe.from_dict(recipe_data)
+                    recipe.save()
+                    messages.success(request, 'Рецепт успешно сохранён в базу данных!')
+                except Exception as e:
+                    messages.error(request, f'Ошибка при сохранении в БД: {str(e)}')
+            
             return redirect('main:recipe_form')
         else:
             messages.error(request, 'Исправьте ошибки формы.')
@@ -216,24 +253,138 @@ def file_detail_view(request, kind: str, filename: str):
     if not path.exists() or not path.is_file():
         raise Http404
 
+    # Get file metadata
+    stat = path.stat()
+    file_info = {
+        'size': stat.st_size,
+        'mtime': stat.st_mtime,
+        'path': str(path),
+    }
+
     ext = path.suffix.lower()
     raw_text = path.read_text(encoding='utf-8')
     data = None
     error = None
+    error_details = None
+    
     if ext == '.xml':
-        parsed = _parse_xml(raw_text.encode('utf-8'))
-        if parsed is not None and _validate_recipe_payload(parsed):
-            data = parsed
-        else:
-            error = 'XML файл не соответствует ожидаемой схеме.'
+        try:
+            parsed = _parse_xml(raw_text.encode('utf-8'))
+            if parsed is not None and _validate_recipe_payload(parsed):
+                data = parsed
+            else:
+                error = 'XML файл не соответствует ожидаемой схеме рецептов.'
+                error_details = 'Файл содержит XML, но структура не соответствует ожидаемому формату рецептов.'
+        except Exception as e:
+            error = 'Ошибка при парсинге XML файла.'
+            error_details = f'Детали ошибки: {str(e)}'
     else:
         error = 'Неподдерживаемое расширение файла.'
+        error_details = f'Поддерживаются только XML файлы. Текущий файл: {ext}'
 
     return render(request, 'main/file_detail.html', {
         'kind': kind,
         'filename': filename,
+        'file_info': file_info,
         'raw_text': raw_text,
         'data': data,
         'error': error,
+        'error_details': error_details,
     })
+
+
+def database_recipes_view(request):
+    """Отображение рецептов из базы данных"""
+    search_query = request.GET.get('search', '')
+    recipes = Recipe.objects.all()
+    
+    if search_query:
+        # SQLite не поддерживает icontains по JSONField напрямую — приводим JSON к тексту
+        recipes = recipes.annotate(ingredients_text=Cast('ingredients', output_field=TextField())) \
+            .filter(
+                Q(title__icontains=search_query) |
+                Q(instructions__icontains=search_query) |
+                Q(ingredients_text__icontains=search_query)
+            )
+    
+    return render(request, 'main/database_recipes.html', {
+        'recipes': recipes,
+        'search_query': search_query,
+    })
+
+
+def ajax_search_recipes(request):
+    """AJAX поиск рецептов"""
+    if request.method == 'GET':
+        query = request.GET.get('q', '')
+        if len(query) < 2:
+            return JsonResponse({'recipes': []})
+        
+        # Аналогично для AJAX-поиска — приводим JSON к тексту
+        recipes = Recipe.objects.annotate(ingredients_text=Cast('ingredients', output_field=TextField())) \
+            .filter(
+                Q(title__icontains=query) |
+                Q(instructions__icontains=query) |
+                Q(ingredients_text__icontains=query)
+            )[:10]
+        
+        results = []
+        for recipe in recipes:
+            results.append({
+                'id': recipe.id,
+                'title': recipe.title,
+                'servings': recipe.servings,
+                'cook_minutes': recipe.cook_minutes,
+                'ingredients_count': len(recipe.get_ingredients_list()),
+                'url': f'/recipes/{recipe.id}/'
+            })
+        
+        return JsonResponse({'recipes': results})
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+def recipe_detail_view(request, recipe_id):
+    """Детальный просмотр рецепта из БД"""
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    return render(request, 'main/recipe_detail.html', {'recipe': recipe})
+
+
+def recipe_edit_view(request, recipe_id):
+    """Редактирование рецепта"""
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    
+    if request.method == 'POST':
+        form = RecipeEditForm(request.POST, instance=recipe)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, 'Рецепт успешно обновлён!')
+                return redirect('main:recipe_detail', recipe_id=recipe.id)
+            except Exception as e:
+                messages.error(request, f'Ошибка при обновлении: {str(e)}')
+        else:
+            messages.error(request, 'Исправьте ошибки формы.')
+    else:
+        form = RecipeEditForm(instance=recipe)
+    
+    return render(request, 'main/recipe_edit.html', {
+        'form': form,
+        'recipe': recipe,
+    })
+
+
+@require_http_methods(["POST"])
+def recipe_delete_view(request, recipe_id):
+    """Удаление рецепта"""
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    recipe_title = recipe.title
+    recipe.delete()
+    messages.success(request, f'Рецепт "{recipe_title}" успешно удалён!')
+    return redirect('main:database_recipes')
+
+
+def data_source_choice_view(request):
+    """Выбор источника данных"""
+    return render(request, 'main/data_source_choice.html')
 

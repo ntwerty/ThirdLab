@@ -1,0 +1,77 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Выбор источника данных{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h1>Выбор источника данных</h1>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="source-card">
+      <h2>📁 Файлы XML/JSON</h2>
+      <p>Просмотр рецептов, сохранённых в файлах формата XML или JSON</p>
+      <div class="source-actions">
+        <a href="{% url 'main:files_list' %}" class="btn-primary">Перейти к файлам</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="source-card">
+      <h2>🗄️ База данных</h2>
+      <p>Просмотр рецептов из базы данных с возможностью поиска, редактирования и удаления</p>
+      <div class="source-actions">
+        <a href="{% url 'main:database_recipes' %}" class="btn-primary">Перейти к БД</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.source-card {
+  text-align: center;
+  padding: 20px;
+}
+
+.source-card h2 {
+  color: var(--accent);
+  margin: 0 0 12px 0;
+  font-size: 24px;
+}
+
+.source-card p {
+  color: var(--muted);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.source-actions {
+  margin-top: 20px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  display: inline-block;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: #4a7cff;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+</style>
+{% endblock %}

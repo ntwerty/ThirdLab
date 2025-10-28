@@ -3,141 +3,294 @@
 {% block title %}Файл {{ filename }}{% endblock %}
 
 {% block content %}
-<h1>{{ kind|title }}: {{ filename }}</h1>
+<div class="toolbar">
+  <div>
+    <h1>{{ kind|title }}: {{ filename }}</h1>
+    <div class="file-meta">
+      <span class="badge">📁 {{ file_info.size|filesizeformat }}</span>
+      <span class="badge">📅 {{ file_info.mtime|date:"d.m.Y H:i" }}</span>
+    </div>
+  </div>
+  <div class="right">
+    <a href="{% url 'main:files_list' %}" class="btn-secondary">← Назад к списку</a>
+  </div>
+</div>
 
 {% if error %}
-  <p class="error">{{ error }}</p>
+  <div class="card">
+    <div class="error-message">
+      <h3>❌ Ошибка при обработке файла</h3>
+      <p><strong>{{ error }}</strong></p>
+      {% if error_details %}
+        <div class="error-details">
+          <p>{{ error_details }}</p>
+        </div>
+      {% endif %}
+      <div class="error-suggestions">
+        <h4>💡 Возможные решения:</h4>
+        <ul>
+          <li>Убедитесь, что файл содержит валидный XML</li>
+          <li>Проверьте, что структура соответствует схеме рецептов</li>
+          <li>Убедитесь, что все обязательные поля заполнены</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 {% else %}
-  <h2>Рецепты</h2>
   {% if data %}
-    {% if data|length_is:1 %}
-      <!-- Отображение одного рецепта -->
+    {% if data|length == 1 %}
+      <!-- Одиночный рецепт -->
       {% with recipe=data.0 %}
-        <div class="recipe-card">
-          <h3>{{ recipe.title }}</h3>
+      <div class="recipe-card">
+        <div class="recipe-header">
+          <h2>{{ recipe.title }}</h2>
           <div class="recipe-meta">
-            <span class="servings">Порций: {{ recipe.servings }}</span>
-            <span class="cook-time">Время приготовления: {{ recipe.cook_minutes }} мин</span>
+            <span class="badge">🍽️ {{ recipe.servings }} порций</span>
+            <span class="badge">⏱️ {{ recipe.cook_minutes }} мин</span>
           </div>
-          <div class="recipe-section">
-            <h4>Ингредиенты:</h4>
+        </div>
+        
+        <div class="recipe-content">
+          <div class="ingredients-section">
+            <h3>🥘 Ингредиенты</h3>
             <ul class="ingredients-list">
               {% for ingredient in recipe.ingredients %}
                 <li>{{ ingredient }}</li>
               {% endfor %}
             </ul>
           </div>
-          <div class="recipe-section">
-            <h4>Инструкции:</h4>
-            <p class="instructions">{{ recipe.instructions }}</p>
+          
+          <div class="instructions-section">
+            <h3>📝 Инструкции</h3>
+            <div class="instructions-text">{{ recipe.instructions|linebreaks }}</div>
           </div>
         </div>
+      </div>
       {% endwith %}
     {% else %}
-      <!-- Отображение списка рецептов -->
-      {% for recipe in data %}
+      <!-- Множественные рецепты -->
+      <div class="recipes-grid">
+        {% for recipe in data %}
         <div class="recipe-card">
-          <h3>{{ recipe.title }}</h3>
-          <div class="recipe-meta">
-            <span class="servings">Порций: {{ recipe.servings }}</span>
-            <span class="cook-time">Время приготовления: {{ recipe.cook_minutes }} мин</span>
+          <div class="recipe-header">
+            <h3>{{ recipe.title }}</h3>
+            <div class="recipe-meta">
+              <span class="badge">🍽️ {{ recipe.servings }} порций</span>
+              <span class="badge">⏱️ {{ recipe.cook_minutes }} мин</span>
+            </div>
           </div>
-          <div class="recipe-section">
-            <h4>Ингредиенты:</h4>
-            <ul class="ingredients-list">
-              {% for ingredient in recipe.ingredients %}
-                <li>{{ ingredient }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-          <div class="recipe-section">
-            <h4>Инструкции:</h4>
-            <p class="instructions">{{ recipe.instructions }}</p>
+          
+          <div class="recipe-content">
+            <div class="ingredients-section">
+              <h4>🥘 Ингредиенты</h4>
+              <ul class="ingredients-list">
+                {% for ingredient in recipe.ingredients %}
+                  <li>{{ ingredient }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            
+            <div class="instructions-section">
+              <h4>📝 Инструкции</h4>
+              <div class="instructions-text">{{ recipe.instructions|linebreaks }}</div>
+            </div>
           </div>
         </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     {% endif %}
   {% else %}
-    <p>Нет данных для отображения</p>
+    <div class="card">
+      <p class="muted">Файл не содержит валидных данных рецептов.</p>
+    </div>
   {% endif %}
 {% endif %}
 
-<h2>Исходное содержимое</h2>
-<pre><code>{{ raw_text|escape }}</code></pre>
-
-<p><a href="{% url 'main:files_list' %}">Назад к списку</a></p>
+<!-- Секция с исходным содержимым (сворачиваемая) -->
+<div class="card">
+  <details>
+    <summary class="raw-content-toggle">📄 Показать исходное содержимое XML</summary>
+    <div class="raw-content">
+      <pre><code>{{ raw_text|escape }}</code></pre>
+    </div>
+  </details>
+</div>
 
 <style>
 .recipe-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   padding: 20px;
-  margin: 20px 0;
-  background-color: #f9f9f9;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 16px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.2);
 }
 
-.recipe-card h3 {
-  color: #333;
-  margin-top: 0;
-  border-bottom: 2px solid #4CAF50;
-  padding-bottom: 10px;
+.recipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.recipe-header h2, .recipe-header h3 {
+  margin: 0;
+  color: var(--text);
+  flex: 1;
 }
 
 .recipe-meta {
   display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-content {
+  display: grid;
   gap: 20px;
-  margin: 15px 0;
-  font-size: 14px;
-  color: #666;
 }
 
-.servings, .cook-time {
-  background-color: #e8f5e8;
-  padding: 5px 10px;
-  border-radius: 4px;
-  border-left: 3px solid #4CAF50;
-}
-
-.recipe-section {
-  margin: 20px 0;
-}
-
-.recipe-section h4 {
-  color: #555;
-  margin-bottom: 10px;
+.ingredients-section h3, .ingredients-section h4 {
+  color: var(--accent);
+  margin: 0 0 8px 0;
   font-size: 16px;
 }
 
 .ingredients-list {
-  list-style-type: none;
+  list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 .ingredients-list li {
-  background-color: #fff;
-  margin: 5px 0;
+  background: rgba(91, 140, 255, 0.1);
+  border: 1px solid rgba(91, 140, 255, 0.2);
+  border-radius: 6px;
   padding: 8px 12px;
-  border-left: 3px solid #4CAF50;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  margin-bottom: 6px;
+  color: var(--text);
 }
 
-.instructions {
-  background-color: #fff;
-  padding: 15px;
-  border-radius: 4px;
+.instructions-section h3, .instructions-section h4 {
+  color: var(--accent);
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.instructions-text {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
   line-height: 1.6;
-  border-left: 3px solid #2196F3;
-  white-space: pre-wrap;
+  color: var(--text);
 }
 
-.error {
-  color: #d32f2f;
-  background-color: #ffebee;
-  padding: 10px;
-  border-radius: 4px;
-  border-left: 3px solid #d32f2f;
+.recipes-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+}
+
+.error-message {
+  text-align: center;
+  padding: 20px;
+}
+
+.error-message h3 {
+  color: var(--err);
+  margin: 0 0 8px 0;
+}
+
+.error-details {
+  background: rgba(255, 92, 92, 0.1);
+  border: 1px solid rgba(255, 92, 92, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.error-details p {
+  margin: 0;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+}
+
+.error-suggestions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.error-suggestions h4 {
+  color: var(--muted);
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.error-suggestions ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.error-suggestions li {
+  margin-bottom: 4px;
+}
+
+.raw-content-toggle {
+  cursor: pointer;
+  padding: 8px 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.raw-content-toggle:hover {
+  color: var(--text);
+}
+
+.raw-content {
+  margin-top: 12px;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+}
+
+.file-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .recipe-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .recipe-meta {
+    margin-top: 8px;
+  }
+  
+  .recipes-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 {% endblock %}

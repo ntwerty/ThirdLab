@@ -1,0 +1,376 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Рецепты из базы данных{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h1>Рецепты из базы данных</h1>
+  <div class="right">
+    <a href="{% url 'main:data_source_choice' %}" class="btn-secondary">← Выбор источника</a>
+  </div>
+</div>
+
+<!-- Поиск -->
+<div class="card">
+  <div class="search-section">
+    <h3>🔍 Поиск рецептов</h3>
+    <form method="GET" class="search-form">
+      <div class="search-input-group">
+        <input type="text" name="search" value="{{ search_query }}" placeholder="Поиск по названию, ингредиентам или инструкциям..." class="search-input">
+        <button type="submit" class="btn-primary">Найти</button>
+      </div>
+    </form>
+    
+    <!-- AJAX поиск -->
+    <div class="ajax-search-section">
+      <h4>⚡ Быстрый поиск</h4>
+      <input type="text" id="ajax-search" placeholder="Начните вводить для быстрого поиска..." class="search-input">
+      <div id="ajax-results" class="ajax-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Результаты -->
+<div class="recipes-section">
+  {% if recipes %}
+    <div class="recipes-grid">
+      {% for recipe in recipes %}
+      <div class="recipe-card">
+        <div class="recipe-header">
+          <h3>{{ recipe.title }}</h3>
+          <div class="recipe-meta">
+            <span class="badge">🍽️ {{ recipe.servings }} порций</span>
+            <span class="badge">⏱️ {{ recipe.cook_minutes }} мин</span>
+          </div>
+        </div>
+        
+        <div class="recipe-content">
+          <div class="ingredients-preview">
+            <h4>🥘 Ингредиенты ({{ recipe.get_ingredients_list|length }})</h4>
+            <div class="ingredients-list">
+              {% for ingredient in recipe.get_ingredients_list|slice:":3" %}
+                <span class="ingredient-tag">{{ ingredient }}</span>
+              {% endfor %}
+              {% if recipe.get_ingredients_list|length > 3 %}
+                <span class="more-ingredients">+{{ recipe.get_ingredients_list|length|add:"-3" }} ещё</span>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="instructions-preview">
+            <h4>📝 Инструкции</h4>
+            <p class="instructions-text">{{ recipe.instructions|truncatewords:20 }}</p>
+          </div>
+        </div>
+        
+        <div class="recipe-actions">
+          <a href="{% url 'main:recipe_detail' recipe.id %}" class="btn-secondary">Подробнее</a>
+          <a href="{% url 'main:recipe_edit' recipe.id %}" class="btn-edit">Редактировать</a>
+          <form method="POST" action="{% url 'main:recipe_delete' recipe.id %}" class="delete-form" onsubmit="return confirm('Вы уверены, что хотите удалить этот рецепт?')">
+            {% csrf_token %}
+            <button type="submit" class="btn-delete">Удалить</button>
+          </form>
+        </div>
+        
+        <div class="recipe-footer">
+          <small class="muted">Создан: {{ recipe.created_at|date:"d.m.Y H:i" }}</small>
+          {% if recipe.updated_at != recipe.created_at %}
+            <small class="muted">Обновлён: {{ recipe.updated_at|date:"d.m.Y H:i" }}</small>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <h3>📝 Рецепты не найдены</h3>
+        {% if search_query %}
+          <p>По запросу "{{ search_query }}" ничего не найдено.</p>
+          <a href="{% url 'main:database_recipes' %}" class="btn-primary">Показать все рецепты</a>
+        {% else %}
+          <p>В базе данных пока нет рецептов.</p>
+          <a href="{% url 'main:recipe_form' %}" class="btn-primary">Добавить рецепт</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-section h3, .search-section h4 {
+  color: var(--accent);
+  margin: 0 0 12px 0;
+}
+
+.search-form {
+  margin-bottom: 20px;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  background: #0f1526;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.ajax-search-section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.ajax-results {
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  display: none;
+}
+
+.ajax-result-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ajax-result-item:hover {
+  background: rgba(91, 140, 255, 0.1);
+}
+
+.ajax-result-item:last-child {
+  border-bottom: none;
+}
+
+.recipes-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+}
+
+.recipe-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.recipe-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+
+.recipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.recipe-header h3 {
+  margin: 0;
+  color: var(--text);
+  flex: 1;
+}
+
+.recipe-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-content {
+  margin-bottom: 16px;
+}
+
+.ingredients-preview h4, .instructions-preview h4 {
+  color: var(--accent);
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.ingredients-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ingredient-tag {
+  background: rgba(91, 140, 255, 0.1);
+  border: 1px solid rgba(91, 140, 255, 0.2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.more-ingredients {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.instructions-text {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.recipe-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-edit {
+  background: #f59e0b;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.btn-edit:hover {
+  background: #d97706;
+  text-decoration: none;
+}
+
+.delete-form {
+  display: inline;
+}
+
+.btn-delete {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
+}
+
+.recipe-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  gap: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-state h3 {
+  color: var(--muted);
+  margin: 0 0 12px 0;
+}
+
+.empty-state p {
+  color: var(--muted);
+  margin: 0 0 20px 0;
+}
+
+@media (max-width: 768px) {
+  .search-input-group {
+    flex-direction: column;
+  }
+  
+  .recipe-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .recipe-meta {
+    margin-top: 8px;
+  }
+  
+  .recipe-actions {
+    flex-direction: column;
+  }
+  
+  .recipe-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ajaxSearch = document.getElementById('ajax-search');
+    const ajaxResults = document.getElementById('ajax-results');
+    let searchTimeout;
+
+    ajaxSearch.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length < 2) {
+            ajaxResults.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            fetch(`{% url 'main:ajax_search' %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.recipes && data.recipes.length > 0) {
+                        ajaxResults.innerHTML = data.recipes.map(recipe => `
+                            <div class="ajax-result-item" onclick="window.location.href='${recipe.url}'">
+                                <strong>${recipe.title}</strong><br>
+                                <small>${recipe.servings} порций • ${recipe.cook_minutes} мин • ${recipe.ingredients_count} ингредиентов</small>
+                            </div>
+                        `).join('');
+                        ajaxResults.style.display = 'block';
+                    } else {
+                        ajaxResults.innerHTML = '<div class="ajax-result-item">Ничего не найдено</div>';
+                        ajaxResults.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка поиска:', error);
+                    ajaxResults.style.display = 'none';
+                });
+        }, 300);
+    });
+    
+    // Скрываем результаты при клике вне области поиска
+    document.addEventListener('click', function(e) {
+        if (!ajaxSearch.contains(e.target) && !ajaxResults.contains(e.target)) {
+            ajaxResults.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}
