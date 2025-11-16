@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +21,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-0kg6jeg(hq8ss9slek!qfd+e&tf#8x38cd3&7(ch$1ow-%_*ng'
+# Read from environment in production; fall back only for local development.
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-0kg6jeg(hq8ss9slek!qfd+e&tf#8x38cd3&7(ch$1ow-%_*ng')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Use environment variable DEBUG=True for local dev, default False for safety.
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+# Allow PythonAnywhere and local hosts; override via ALLOWED_HOSTS env (comma-separated)
+ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', '.pythonanywhere.com,localhost,127.0.0.1').split(',') if h]
+
+# Trust PythonAnywhere domain by default; extend via CSRF_TRUSTED_ORIGINS env (comma-separated full origins)
+CSRF_TRUSTED_ORIGINS = [
+    *([o for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o]),
+    'https://*.pythonanywhere.com',
+]
 
 
 # Application definition
@@ -73,12 +83,28 @@ WSGI_APPLICATION = 'recipes.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Поддержка PostgreSQL через переменные окружения, fallback на SQLite для локальной разработки
+DB_ENGINE = os.getenv('DB_ENGINE', 'django.db.backends.sqlite3')
+
+if DB_ENGINE == 'django.db.backends.postgresql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'recipes_db'),
+            'USER': os.getenv('DB_USER', 'recipes_user'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'recipes_password'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    # Fallback на SQLite для локальной разработки без Docker
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -115,7 +141,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+# Where collectstatic will place files for production hosting
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media (for uploaded files if needed in the future)
 MEDIA_URL = '/media/'
