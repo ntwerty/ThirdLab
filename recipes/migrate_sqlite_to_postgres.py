@@ -47,15 +47,29 @@ def migrate_data(sqlite_path=None):
     
     print(f"Чтение данных из SQLite: {sqlite_path}")
     
-    # Подключаемся к SQLite базе
-    sqlite_db = {
+    # Получаем настройки Django
+    from django.conf import settings
+    
+    # Создаем полную конфигурацию SQLite с всеми необходимыми настройками
+    # Django 5.2 проверяет множество настроек при создании подключения
+    original_db = settings.DATABASES['default'].copy()
+    
+    # Создаем конфигурацию SQLite, копируя все настройки из оригинальной БД
+    # и заменяя только ENGINE и NAME
+    sqlite_db = original_db.copy()
+    sqlite_db.update({
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': str(sqlite_path),
-    }
+        'OPTIONS': {},
+    })
+    # Убеждаемся, что TIME_ZONE присутствует
+    if 'TIME_ZONE' not in sqlite_db:
+        sqlite_db['TIME_ZONE'] = getattr(settings, 'TIME_ZONE', 'UTC')
+    # Добавляем CONN_HEALTH_CHECKS, если его нет (для Django 5.2+)
+    if 'CONN_HEALTH_CHECKS' not in sqlite_db:
+        sqlite_db['CONN_HEALTH_CHECKS'] = False
     
     # Временно заменяем конфигурацию БД
-    from django.conf import settings
-    original_db = settings.DATABASES['default'].copy()
     settings.DATABASES['default'] = sqlite_db
     connections.databases['default'] = sqlite_db
     
@@ -72,21 +86,26 @@ def migrate_data(sqlite_path=None):
         # Восстанавливаем конфигурацию PostgreSQL
         settings.DATABASES['default'] = original_db
         connections.databases['default'] = original_db
-        connections['default'].close()
         
-        # Переключаемся на PostgreSQL
-        os.environ['DB_ENGINE'] = 'django.db.backends.postgresql'
-        django.setup()
+        # Закрываем старое подключение
+        try:
+            connections['default'].close()
+        except Exception:
+            pass
         
         print("\nПодключение к PostgreSQL...")
         print("Убедитесь, что PostgreSQL запущен и доступен!")
         
         # Проверяем подключение к PostgreSQL
         from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        
-        print("Подключение к PostgreSQL успешно!\n")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            print("Подключение к PostgreSQL успешно!\n")
+        except Exception as e:
+            print(f"Ошибка подключения к PostgreSQL: {e}")
+            print("Проверьте, что PostgreSQL запущен и доступен!")
+            return False
         
         # Мигрируем данные
         migrated = 0
@@ -94,8 +113,33 @@ def migrate_data(sqlite_path=None):
         errors = 0
         
         # Временно снова подключаемся к SQLite для чтения
-        settings.DATABASES['sqlite'] = sqlite_db
-        connections.databases['sqlite'] = sqlite_db
+        # Убеждаемся, что все необходимые настройки присутствуют
+        # Закрываем старое подключение SQLite, если оно было
+        try:
+            if 'sqlite' in connections:
+                connections['sqlite'].close()
+            # Удаляем старое подключение из кэша
+            if 'sqlite' in connections.databases:
+                del connections.databases['sqlite']
+        except Exception:
+            pass
+        
+        # Создаем новое подключение к SQLite с правильными настройками
+        # Копируем все настройки из оригинальной БД
+        sqlite_db_for_reading = original_db.copy()
+        sqlite_db_for_reading.update({
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': str(sqlite_path),
+            'OPTIONS': {},
+        })
+        # Убеждаемся, что все необходимые настройки присутствуют
+        if 'TIME_ZONE' not in sqlite_db_for_reading:
+            sqlite_db_for_reading['TIME_ZONE'] = getattr(settings, 'TIME_ZONE', 'UTC')
+        if 'CONN_HEALTH_CHECKS' not in sqlite_db_for_reading:
+            sqlite_db_for_reading['CONN_HEALTH_CHECKS'] = False
+        
+        settings.DATABASES['sqlite'] = sqlite_db_for_reading
+        connections.databases['sqlite'] = sqlite_db_for_reading
         
         from django.db import router
         for recipe in Recipe.objects.using('sqlite').all():
@@ -122,7 +166,7 @@ def migrate_data(sqlite_path=None):
                 print(f"  Мигрирован: {recipe.title}")
                 migrated += 1
                 
-            except Exception as e:
+            except Exception as e: 
                 print(f"  Ошибка при миграции '{recipe.title}': {e}")
                 errors += 1
         
